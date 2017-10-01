@@ -3,19 +3,20 @@
 class ImageHash
 {
     const SIZE = 8;
-    public function hasher($resource)
+    // this is 'DifferenceHash' from https://github.com/jenssegers/imagehash
+    public static function hasher($resource)
     {
-        // For this implementation we create a 8x9 image.
+        // For this implementation we create a (SIZE+1) x (SIZE) image.
         $width = static::SIZE + 1;
-        $heigth = static::SIZE;
+        $height = static::SIZE;
 
         // Resize the image.
-        $resized = imagecreatetruecolor($width, $heigth);
-        imagecopyresampled($resized, $resource, 0, 0, 0, 0, $width, $heigth, imagesx($resource), imagesy($resource));
+        $resized = imagecreatetruecolor($width, $height);
+        imagecopyresampled($resized, $resource, 0, 0, 0, 0, $width, $height, imagesx($resource), imagesy($resource));
 
         $hash = 0;
         $one = 1;
-        for ($y = 0; $y < $heigth; $y++) {
+        for ($y = 0; $y < $height; $y++) {
             // Get the pixel value for the leftmost pixel.
             $rgb = imagecolorsforindex($resized, imagecolorat($resized, 0, $y));
             $left = floor(($rgb['red'] + $rgb['green'] + $rgb['blue']) / 3);
@@ -43,6 +44,23 @@ class ImageHash
         return $hash;
     }
 
+    /**
+     * Calculate the Hamming Distance.
+     *
+     * @param int $hash1
+     * @param int $hash2
+     * @return int
+     */
+    public static function distance($hash1, $hash2)
+    {
+      $dh = 0;
+      for ($i = 0; $i < (self::SIZE * self::SIZE); $i++) {
+        $k = (1 << $i);
+        if (($hash1 & $k) !== ($hash2 & $k))
+          $dh++;
+      }
+      return $dh;
+    }
 
     /**
      * Calculate a perceptual hash of an image file.
@@ -50,7 +68,7 @@ class ImageHash
      * @param  mixed $resource GD2 resource or filename
      * @return int
      */
-    public function hash($resource)
+    public static function hash($resource)
     {
         $destroy = false;
 
@@ -59,37 +77,11 @@ class ImageHash
             $destroy = true;
         }
 
-        $hash = $this->hasher($resource);
+        $hash = self::hasher($resource);
 
         if ($destroy)
             imagedestroy($resource);
 
         return $hash;
-    }
-
-
-    /**
-     * Calculate the Hamming Distance.
-     *
-     * @param int $hash1
-     * @param int $hash2
-     * @return int
-     */
-    public function distance($hash1, $hash2)
-    {
-        if (extension_loaded('gmp')) {
-            $dh = gmp_hamdist($hash1, $hash2);
-
-        } else {
-            $dh = 0;
-            for ($i = 0; $i < 64; $i++) {
-                $k = (1 << $i);
-                if (($hash1 & $k) !== ($hash2 & $k)) {
-                    $dh++;
-                }
-            }
-        }
-
-        return $dh;
     }
 }
